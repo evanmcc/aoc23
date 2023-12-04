@@ -62,6 +62,7 @@ fn main() {
         (0, 1),
         (1, 1),
     ];
+    let mut ratios = 0;
 
     for y in 0..ylen {
         for x in 0..xlen {
@@ -70,17 +71,23 @@ fn main() {
                 //scan in a circle, collect and delete any numbers we see to
                 //prevent a double count
                 println!("found {} at ({},{})", ch, y, x);
+
+                let mut sub_parts: Vec<usize> = vec![];
                 for (dy, dx) in circle.iter() {
                     let lx = (x as isize + dx) as usize;
                     let ly = (y as isize + dy) as usize;
                     if grid[ly][lx].is_ascii_digit() {
                         let number = scan_remove(ly, lx, &mut grid, xlen);
-                        parts.push(number);
+                        sub_parts.push(number);
                     }
                 }
+                if sub_parts.len() == 2 && ch == '*' {
+                    ratios += sub_parts[0] * sub_parts[1];
+                }
+                parts.extend(sub_parts);
             }
         }
     }
     let tot: usize = parts.iter().sum();
-    println!("total: {}", tot);
+    println!("total: {}, ratio: {}", tot, ratios);
 }
