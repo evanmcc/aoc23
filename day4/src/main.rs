@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 struct Card {
-    num: usize,
     copies: usize,
     nums: Vec<usize>,
     wins: Vec<usize>,
@@ -15,8 +14,6 @@ fn main() {
     let infh = File::open(std::path::PathBuf::from(infile)).expect("couldn't open file");
 
     let reader = BufReader::new(infh);
-
-    let mut total = 0;
 
     let lines: Vec<String> = reader.lines().map(|x| x.unwrap()).collect();
 
@@ -44,7 +41,6 @@ fn main() {
         linemap.insert(
             num,
             Card {
-                num,
                 copies: 1,
                 nums: nums.clone(),
                 wins: wins.clone(),
@@ -53,7 +49,7 @@ fn main() {
     }
 
     for i in 1..=linemap.len() {
-        let card: &Card = linemap.get(&i).unwrap();
+        let card: &Card = linemap.get_mut(&i).unwrap();
 
         let mut subtot = 0;
         for num in card.nums.iter() {
@@ -61,11 +57,10 @@ fn main() {
                 subtot += 1;
             }
         }
-        for _ in 0..card.copies {
-            for n in 1..=subtot {
-                let card2 = linemap.get_mut(&(i + n)).unwrap();
-                card2.copies += 1;
-            }
+        let copies = card.copies;
+        for n in 1..=subtot {
+            let card2 = linemap.get_mut(&(i + n)).unwrap();
+            card2.copies += copies;
         }
     }
 
