@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 //use std::collections::HashMap;
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -88,9 +89,6 @@ fn main() {
     }
 
     // now we have the map, answer the question
-    let mut low_loc = usize::MAX;
-    let mut low_seed = 0;
-
     use Mode::*;
     let modes = [
         Seed2Soil,
@@ -107,43 +105,48 @@ fn main() {
         .collect();
 
     println!("seeds {:?}", seeds);
-    for (start, end) in seeds.iter() {
-        println!("{}", start);
-        for seed in *start..(*start + *end) {
-            let mut input = seed;
-            //println!("seed {}", seed);
-            for (mode, mv) in mode_map.iter() {
-                //println!("mode {:?} vec {:?}", mode, mv);
-                for mapping in mv.iter() {
-                    //println!("map {:?}", mapping);
-                    let span = (mapping.left + mapping.len) - 1;
-                    if input > span {
-                        // too low
-                        //println!("cont");
-                        continue;
-                    } else if input >= mapping.left && input <= span {
-                        // in range
-                        //let prior = input;
-                        input = mapping.right + (input - mapping.left);
-                        //println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
-                        break;
-                    } else {
-                        // missing, leave input as is
-                        //println!("miss");
-                        break;
+    let lowest_loc = seeds
+        .par_iter()
+        .map(|(start, end)| {
+            let mut low_loc = usize::MAX;
+
+            println!("{}", start);
+            for seed in *start..(*start + *end) {
+                let mut input = seed;
+                //println!("seed {}", seed);
+                for (mode, mv) in mode_map.iter() {
+                    //println!("mode {:?} vec {:?}", mode, mv);
+                    for mapping in mv.iter() {
+                        //println!("map {:?}", mapping);
+                        let span = (mapping.left + mapping.len) - 1;
+                        if input > span {
+                            // too low
+                            //println!("cont");
+                            continue;
+                        } else if input >= mapping.left && input <= span {
+                            // in range
+                            //let prior = input;
+                            input = mapping.right + (input - mapping.left);
+                            //println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
+                            break;
+                        } else {
+                            // missing, leave input as is
+                            //println!("miss");
+                            break;
+                        }
                     }
-                }
-                if **mode == Hum2Loc {
-                    //println!("loc {}", input);
-                    if input <= low_loc {
-                        low_loc = input;
-                        low_seed = seed;
+                    if **mode == Hum2Loc {
+                        //println!("loc {}", input);
+                        if input <= low_loc {
+                            low_loc = input;
+                        }
                     }
                 }
             }
-        }
-    }
-    println!("lowest loc {} seed {} ", low_loc, low_seed);
+            low_loc
+        })
+        .reduce(|| usize::MAX, std::cmp::min);
+    println!("lowest loc {}", lowest_loc);
 }
 
 /*
