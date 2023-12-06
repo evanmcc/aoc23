@@ -33,7 +33,7 @@ fn main() {
 
     let mut current = Mode::Seed;
 
-    let mut seeds: Vec<usize> = vec![];
+    let mut seeds: Vec<(usize, usize)> = vec![];
 
     let mut mappings: HashMap<Mode, Vec<Mapping>> = HashMap::new();
 
@@ -44,7 +44,9 @@ fn main() {
             let seedlist = line.split(": ").collect::<Vec<&str>>()[1]
                 .split_ascii_whitespace()
                 .collect::<Vec<&str>>();
-            seeds = seedlist.iter().map(|x| x.parse().unwrap()).collect();
+
+            let seedlist1: Vec<usize> = seedlist.iter().map(|x| x.parse().unwrap()).collect();
+            seeds = seedlist1.chunks(2).map(|x| (x[0], x[1])).collect();
         } else if line.starts_with("seed-to-soil") {
             current = Mode::Seed2Soil;
         } else if line.starts_with("soil-to-fertilizer") {
@@ -88,46 +90,55 @@ fn main() {
     // now we have the map, answer the question
     let mut low_loc = usize::MAX;
     let mut low_seed = 0;
-    for seed in seeds.iter() {
-        use Mode::*;
-        let mut input = *seed;
-        println!("seed {}", seed);
-        for mode in [
-            Seed2Soil,
-            Soil2Fert,
-            Fert2Water,
-            Water2Light,
-            Light2Temp,
-            Temp2Hum,
-            Hum2Loc,
-        ]
+
+    use Mode::*;
+    let modes = [
+        Seed2Soil,
+        Soil2Fert,
+        Fert2Water,
+        Water2Light,
+        Light2Temp,
+        Temp2Hum,
+        Hum2Loc,
+    ];
+    let mode_map: Vec<(&Mode, &Vec<Mapping>)> = modes
         .iter()
-        {
-            let mv = mappings.get(mode).unwrap();
-            //println!("mode {:?} vec {:?}", mode, mv);
-            for mapping in mv.iter() {
-                //println!("map {:?}", mapping);
-                if input > (mapping.left + mapping.len) {
-                    // too low
-                    //println!("cont");
-                    continue;
-                } else if input >= mapping.left && input < (mapping.left + mapping.len) {
-                    // in range
-                    let prior = input;
-                    input = mapping.right + (input - mapping.left);
-                    println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
-                    break;
-                } else {
-                    // missing, leave input as is
-                    println!("miss");
-                    break;
+        .map(|x| (x, mappings.get(x).unwrap()))
+        .collect();
+
+    println!("seeds {:?}", seeds);
+    for (start, end) in seeds.iter() {
+        println!("{}", start);
+        for seed in *start..(*start + *end) {
+            let mut input = seed;
+            //println!("seed {}", seed);
+            for (mode, mv) in mode_map.iter() {
+                //println!("mode {:?} vec {:?}", mode, mv);
+                for mapping in mv.iter() {
+                    //println!("map {:?}", mapping);
+                    let span = (mapping.left + mapping.len) - 1;
+                    if input > span {
+                        // too low
+                        //println!("cont");
+                        continue;
+                    } else if input >= mapping.left && input <= span {
+                        // in range
+                        //let prior = input;
+                        input = mapping.right + (input - mapping.left);
+                        //println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
+                        break;
+                    } else {
+                        // missing, leave input as is
+                        //println!("miss");
+                        break;
+                    }
                 }
-            }
-            if *mode == Hum2Loc {
-                println!("loc {}", input);
-                if input <= low_loc {
-                    low_loc = input;
-                    low_seed = *seed;
+                if **mode == Hum2Loc {
+                    //println!("loc {}", input);
+                    if input <= low_loc {
+                        low_loc = input;
+                        low_seed = seed;
+                    }
                 }
             }
         }
