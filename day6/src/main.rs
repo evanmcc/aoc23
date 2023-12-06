@@ -1,6 +1,6 @@
 fn main() {
-    let time = [59, 68, 82, 74];
-    let distance = [543, 1020, 1664, 1022];
+    let time = [59688274];
+    let distance = [543102016641022_usize];
 
     let mut margin = 1;
     for i in 0..time.len() {
