@@ -70,6 +70,7 @@ fn main() {
                 .map(|x| x.parse::<usize>().unwrap())
                 .collect();
 
+            // ideally I would rename these src and dest at the appropriate places
             let left = map[1];
             let right = map[0];
             let len = map[2];
@@ -116,24 +117,14 @@ fn main() {
                 //println!("seed {}", seed);
                 for (mode, mv) in mode_map.iter() {
                     //println!("mode {:?} vec {:?}", mode, mv);
-                    for mapping in mv.iter() {
-                        //println!("map {:?}", mapping);
-                        let span = (mapping.left + mapping.len) - 1;
-                        if input > span {
-                            // too low
-                            //println!("cont");
-                            continue;
-                        } else if input >= mapping.left && input <= span {
-                            // in range
-                            //let prior = input;
-                            input = mapping.right + (input - mapping.left);
-                            //println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
-                            break;
-                        } else {
-                            // missing, leave input as is
-                            //println!("miss");
-                            break;
-                        }
+                    let pos = match mv.binary_search_by(|x| x.left.cmp(&input)) {
+                        Ok(p) => p,
+                        Err(p) => std::cmp::max(0, p as isize - 1) as usize,
+                    };
+                    let mapping = &mv[pos];
+                    let span = (mapping.left + mapping.len) - 1;
+                    if input >= mapping.left && input <= span {
+                        input = mapping.right + (input - mapping.left);
                     }
                     if **mode == Hum2Loc {
                         //println!("loc {}", input);
