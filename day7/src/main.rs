@@ -8,16 +8,16 @@ enum Card {
     Ace = 13,
     King = 12,
     Queen = 11,
-    Jack = 10,
-    Ten = 9,
-    Nine = 8,
-    Eight = 7,
-    Seven = 6,
-    Six = 5,
-    Five = 4,
-    Four = 3,
-    Three = 2,
-    Two = 1,
+    Ten = 10,
+    Nine = 9,
+    Eight = 8,
+    Seven = 7,
+    Six = 6,
+    Five = 5,
+    Four = 4,
+    Three = 3,
+    Two = 2,
+    Joker = 1,
 }
 
 fn char_to_card(c: char) -> Card {
@@ -26,7 +26,7 @@ fn char_to_card(c: char) -> Card {
         'A' => Ace,
         'K' => King,
         'Q' => Queen,
-        'J' => Jack,
+        'J' => Joker,
         'T' => Ten,
         '9' => Nine,
         '8' => Eight,
@@ -41,7 +41,7 @@ fn char_to_card(c: char) -> Card {
 }
 
 // define order for sort
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum HandType {
     Five = 7,
     Four = 6,
@@ -90,23 +90,52 @@ fn determine_type(hand: String) -> HandType {
     for c in hand.chars() {
         *map.entry(c).or_insert(0) += 1;
     }
+    let jokers = map.remove_entry(&'J').map_or(0, |(_, x)| x);
     let mut sort_count: Vec<usize> = map.into_values().collect();
     sort_count.sort();
     sort_count.reverse();
-    match sort_count[0] {
+
+    match jokers {
         5 => HandType::Five,
-        4 => HandType::Four,
-        3 => match sort_count[1] {
-            2 => HandType::Full,
+        4 => HandType::Five, // matches whatever else was there
+        3 => match sort_count[0] {
+            2 => HandType::Five,
+            1 => HandType::Four,
+            _ => panic!("bad hand"),
+        },
+        2 => match sort_count[0] {
+            3 => HandType::Five,
+            2 => HandType::Four,
             1 => HandType::Three,
             _ => panic!("bad hand"),
         },
-        2 => match sort_count[1] {
-            2 => HandType::TwoPair,
+        1 => match sort_count[0] {
+            4 => HandType::Five,
+            3 => HandType::Four,
+            2 => match sort_count[1] {
+                2 => HandType::Full,
+                1 => HandType::Three,
+                _ => panic!("bad hand"),
+            },
             1 => HandType::OnePair,
             _ => panic!("bad hand"),
         },
-        1 => HandType::High,
+        0 => match sort_count[0] {
+            5 => HandType::Five,
+            4 => HandType::Four,
+            3 => match sort_count[1] {
+                2 => HandType::Full,
+                1 => HandType::Three,
+                _ => panic!("bad hand"),
+            },
+            2 => match sort_count[1] {
+                2 => HandType::TwoPair,
+                1 => HandType::OnePair,
+                _ => panic!("bad hand"),
+            },
+            1 => HandType::High,
+            _ => panic!("bad hand"),
+        },
         _ => panic!("bad hand"),
     }
 }
@@ -127,7 +156,7 @@ fn main() {
         let bid: usize = bid_parts[1].parse().unwrap();
         hands.push(Hand {
             str_cards: cards.to_string(),
-            cards: cards.to_string().chars().map(|c| char_to_card(c)).collect(),
+            cards: cards.to_string().chars().map(char_to_card).collect(),
             typ: determine_type(cards.to_string()),
             bid,
         });
@@ -135,7 +164,14 @@ fn main() {
 
     hands.sort();
     let ret = hands.iter().enumerate().fold(0, |acc, (i, hand)| {
-        println!("hand {} rank {} bid {}", hand.str_cards, i + 1, hand.bid);
+        /*
+        println!(
+            "hand {} rank {} * {} t {:?}",
+            hand.str_cards,
+            i + 1,
+            hand.bid,
+            hand.typ
+        ); */
         acc + (hand.bid * (i + 1))
     });
     println!("total {}", ret);
