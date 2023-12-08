@@ -2,9 +2,26 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+#[derive(Debug)]
 struct Node {
     left: String,
     right: String,
+}
+
+fn lcm(nums: &[usize]) -> usize {
+    if nums.len() == 1 {
+        return nums[0];
+    }
+    let l = nums[0];
+    let r = lcm(&nums[1..]);
+    l * r / gcd(l, r)
+}
+
+fn gcd(l: usize, r: usize) -> usize {
+    if r == 0 {
+        return l;
+    }
+    gcd(r, l % r)
 }
 
 fn main() {
@@ -18,6 +35,7 @@ fn main() {
 
     let mut instruction_list = "";
     let mut nodes: HashMap<String, Node> = HashMap::new();
+    let mut starts: Vec<String> = vec![];
 
     for line in lines.iter() {
         if instruction_list.is_empty() {
@@ -29,6 +47,9 @@ fn main() {
             let left = &line[7..10].to_string();
             let right = &line[12..15].to_string();
 
+            if name.ends_with('A') {
+                starts.push(name.clone());
+            }
             nodes.insert(
                 name.clone(),
                 Node {
@@ -39,23 +60,31 @@ fn main() {
         }
     }
 
-    let mut current: &Node = nodes.get("AAA").unwrap();
-    let mut steps = 1;
-    'outer: loop {
-        for inst in instruction_list.chars() {
-            let next = match inst {
-                'R' => current.right.clone(),
-                'L' => current.left.clone(),
-                _ => panic!("bad instruction"),
-            };
-            println!("inst {} next {} steps {}", inst, next, steps);
-            if next == "ZZZ" {
-                println!("steps {}", steps);
-                break 'outer;
-            } else {
-                current = nodes.get(&next).unwrap();
-                steps += 1;
+    println!("starts {:?}", starts);
+    let mut currents: Vec<&Node> = vec![];
+    for s in starts.iter() {
+        currents.push(nodes.get(s).unwrap());
+    }
+
+    let mut steps: Vec<usize> = vec![];
+    for cur in currents.iter_mut() {
+        let mut step_count = 0;
+        'outer: loop {
+            for inst in instruction_list.chars() {
+                let next = match inst {
+                    'R' => cur.right.clone(),
+                    'L' => cur.left.clone(),
+                    _ => panic!("bad instruction"),
+                };
+                *cur = nodes.get(&next).unwrap();
+                step_count += 1;
+                if next.ends_with('Z') {
+                    steps.push(step_count);
+                    break 'outer;
+                }
             }
         }
     }
+    let res = lcm(&steps);
+    println!("steps {}", res);
 }
