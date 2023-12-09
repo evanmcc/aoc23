@@ -7,12 +7,13 @@ fn predict(nums: Vec<isize>) -> isize {
         let diff = nums[i + 1] - nums[i];
         diffs.push(diff);
     }
+    // last to first, add to sub
     if diffs.iter().all(|x| *x == 0) {
-        *nums.last().unwrap()
+        *nums.first().unwrap()
     } else {
         let pred = predict(diffs.clone());
-        println!("nums {:?} diffs {:?}, pred {}", nums, diffs, pred);
-        nums.last().unwrap() + pred
+        //println!("nums {:?} diffs {:?}, pred {}", nums, diffs, pred);
+        nums.first().unwrap() - pred
     }
 }
 
@@ -32,7 +33,7 @@ fn main() {
             .map(|x| x.parse::<isize>().unwrap())
             .collect();
         let prediction = predict(nums);
-        println!("pred {}", prediction);
+        //println!("pred {}", prediction);
         total += prediction;
     }
     println!("prediction {}", total);
