@@ -95,45 +95,46 @@ fn determine_type(hand: String) -> HandType {
     sort_count.sort();
     sort_count.reverse();
 
+    use HandType::*;
     match jokers {
-        5 => HandType::Five,
-        4 => HandType::Five, // matches whatever else was there
+        5 => Five,
+        4 => Five, // matches whatever else was there
         3 => match sort_count[0] {
-            2 => HandType::Five,
-            1 => HandType::Four,
+            2 => Five,
+            1 => Four,
             _ => panic!("bad hand"),
         },
         2 => match sort_count[0] {
-            3 => HandType::Five,
-            2 => HandType::Four,
-            1 => HandType::Three,
+            3 => Five,
+            2 => Four,
+            1 => Three,
             _ => panic!("bad hand"),
         },
         1 => match sort_count[0] {
-            4 => HandType::Five,
-            3 => HandType::Four,
+            4 => Five,
+            3 => Four,
             2 => match sort_count[1] {
-                2 => HandType::Full,
-                1 => HandType::Three,
+                2 => Full,
+                1 => Three,
                 _ => panic!("bad hand"),
             },
-            1 => HandType::OnePair,
+            1 => OnePair,
             _ => panic!("bad hand"),
         },
         0 => match sort_count[0] {
-            5 => HandType::Five,
-            4 => HandType::Four,
+            5 => Five,
+            4 => Four,
             3 => match sort_count[1] {
-                2 => HandType::Full,
-                1 => HandType::Three,
+                2 => Full,
+                1 => Three,
                 _ => panic!("bad hand"),
             },
             2 => match sort_count[1] {
-                2 => HandType::TwoPair,
-                1 => HandType::OnePair,
+                2 => TwoPair,
+                1 => OnePair,
                 _ => panic!("bad hand"),
             },
-            1 => HandType::High,
+            1 => High,
             _ => panic!("bad hand"),
         },
         _ => panic!("bad hand"),
