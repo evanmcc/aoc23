@@ -92,14 +92,6 @@ struct Hand: Comparable {
     }
 }
 
-
-
-// impl PartialOrd for Hand {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-
 func determine_type(hand: String) throws -> HandType {
     var map: [Character: Int] = [:]
     for c in hand {
