@@ -27,7 +27,7 @@ struct Puzzle: ParsableCommand {
     @Argument(help: "the puzzle input file")
     var file: String
 
-    mutating func run() throws {
+    mutating func run() async throws {
         let input = try! String(contentsOfFile: file)
         let lines = input.components(separatedBy: .newlines)
 
@@ -102,45 +102,61 @@ struct Puzzle: ParsableCommand {
         let mode_map: [(Mode, [Mapping])] = modes.map {x in (x, mappings[x]!) }
 
         print("seeds", seeds);
-        let lowest_loc = seeds
-          .map({(start, end) in
-                   var low_loc = Int.max
+        @Sendable
+        func search_seed(start: Int, end: Int) async -> Int {
+            var low_loc = Int.max
 
-                   print(start);
-                   for seed in start..<(start + end) {
-                       var input = seed;
-                       //println!("seed {}", seed);
-                       for (mode, mv) in mode_map {
-                           for mapping in mv {
-                               let span = (mapping.left + mapping.len) - 1;
-                               if input > span {
-                                   // too low
-                                   //println!("cont");
-                                   continue;
-                               } else if input >= mapping.left && input <= span {
-                                   // in range
-                                   //let prior = input;
-                                   input = mapping.right + (input - mapping.left);
-                                   //println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
-                                   break;
-                               } else {
-                                   // missing, leave input as is
-                                   //println!("miss");
-                                   break;
-                               }
-                           }
-                           if mode == .hum2Loc {
-                               //println!("loc {}", input);
-                               if input <= low_loc {
-                                   low_loc = input;
-                               }
-                           }
-                       }
-                   }
-                   return low_loc
-               }
-          )
-          .reduce(Int.max, min)
-    print("lowest loc", lowest_loc)
+            print(start);
+            for seed in start..<(start + end) {
+                var input = seed;
+                //println!("seed {}", seed);
+                for (mode, mv) in mode_map {
+                    for mapping in mv {
+                        let span = (mapping.left + mapping.len) - 1;
+                        if input > span {
+                            // too low
+                            //println!("cont");
+                            continue;
+                        } else if input >= mapping.left && input <= span {
+                            // in range
+                            //let prior = input;
+                            input = mapping.right + (input - mapping.left);
+                            //println!("found {:?} {} {} mapping {:?}", mode, prior, input, mapping);
+                            break;
+                        } else {
+                            // missing, leave input as is
+                            //println!("miss");
+                            break;
+                        }
+                    }
+                    if mode == .hum2Loc {
+                        //println!("loc {}", input);
+                        if input <= low_loc {
+                            low_loc = input;
+                        }
+                    }
+                }
+            }
+            return low_loc
+        }
+        if #available(macOS 11, *) {
+
+            let locs: [Int] = await withTaskGroup(of: Int.self)
+            { taskGroup in
+                for (start, end) in seeds {
+                    taskGroup.addTask { await search_seed(start: start, end: end) }
+                }
+                var l: [Int] = []
+                for await result in taskGroup {
+                    l.append(result)
+                }
+                return l
+            }
+
+            let lowest_loc: Int = locs.reduce(Int.max, min)
+            print("lowest loc", lowest_loc)
+        } else {
+            print("why so low?")
+        }
     }
 }
