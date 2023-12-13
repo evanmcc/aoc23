@@ -54,7 +54,7 @@ enum Placement {
 struct Seg {
     mov: Segment,
     loc: Placement,
-    inside: Vec<Direction>,
+    orig: char,
     is_start: bool,
 }
 
@@ -100,7 +100,7 @@ fn char_to_segment(c: char) -> Seg {
     Seg {
         mov,
         loc: Placement::Unknown,
-        inside: vec![],
+        orig: c,
         is_start: c == 'S',
     }
 }
@@ -125,56 +125,6 @@ where
         prev_move = other;
         if cur == start {
             break 'steps;
-        }
-    }
-}
-
-fn update_from_nearby(ux: usize, uy: usize, grid: &mut Grid) {
-    use Direction::*;
-    use Placement::*;
-
-    if grid[ux][uy].loc == Loop {
-        return;
-    }
-
-    let x = ux as isize;
-    let y = uy as isize;
-    let xlen = grid.len() as isize;
-    let ylen = grid[0].len() as isize;
-
-    let cross = [(0, -1, North), (0, 1, South), (1, 0, East), (-1, 0, West)];
-    for (dx, dy, dir) in cross {
-        if x + dx >= 0 && y + dy >= 0 && x + dx < xlen && y + dy < ylen {
-            let near = &grid[(x + dx) as usize][(y + dy) as usize];
-            match near.loc {
-                Outside => {
-                    grid[ux][uy].loc = Outside;
-                    break;
-                }
-                Inside => {
-                    grid[ux][uy].loc = Inside;
-                    break;
-                }
-                Loop => {
-                    if near.inside.contains(&dir) {
-                        // this is the bad case actually, since we're
-                        // looking in dir and it's on the other side!
-                        grid[ux][uy].loc = Outside;
-                    } else {
-                        println!(
-                            "near {},{} {:?}  {:?} dir {:?}",
-                            x + dx,
-                            y + dy,
-                            near.inside,
-                            near.mov,
-                            dir
-                        );
-                        grid[ux][uy].loc = Inside;
-                    }
-                    break;
-                }
-                _ => continue,
-            }
         }
     }
 }
@@ -275,100 +225,191 @@ fn main() {
     });
     println!("pl {}", path_len / 2);
 
-    // pick the y midpoint and trace in from X 0 till you hit a side, then trace the circle
-    let mid = (grid.len() / 2) as usize;
-    let mut y = 0;
-    while grid[mid][y].loc != Loop {
-        y += 1;
-        continue;
+    // double the grid so we can flood-fill
+    let mut big_grid: Grid = vec![];
+    for _ in 0..(grid.len() * 2) {
+        big_grid.push(vec![])
     }
-    let (prev_move2, mut last_inside) = match grid[mid][y].mov {
-        EW => {
-            grid[mid][y].inside.push(South);
-            (West, vec![South])
+    //copy the old grid onto the new one, extending as we go
+    for x in 0..big_grid.len() {
+        if x % 2 == 0 {
+            for y in 0..(grid[0].len() * 2) {
+                if y % 2 == 0 {
+                    let s = grid[x / 2][y / 2].clone();
+                    if s.loc == Loop {
+                        big_grid[x].push(s);
+                    } else {
+                        big_grid[x].push(Seg {
+                            mov: Ground,
+                            loc: Unknown,
+                            orig: '.',
+                            is_start: false,
+                        });
+                    }
+                } else {
+                    big_grid[x].push(Seg {
+                        mov: Ground,
+                        loc: Unknown,
+                        orig: '.',
+                        is_start: false,
+                    });
+                };
+            }
+        } else {
+            for _ in 0..(grid[0].len() * 2) {
+                big_grid[x].push(Seg {
+                    loc: Unknown,
+                    mov: Ground,
+                    orig: '.',
+                    is_start: false,
+                });
+            }
         }
-        SE => {
-            grid[mid][y].inside.extend([South, East]);
-            (North, vec![South, East])
+    }
+
+    let up = [SE, SW, NS];
+    let down = [NE, NW, NS];
+    let right = [NE, SE, EW];
+    let left = [NW, SW, EW];
+    // now do a pass to connect the loop segments
+    let xlen = big_grid.len();
+    let ylen = big_grid[0].len();
+
+    for x in 0..big_grid.len() {
+        if x % 2 == 1 {
+            for y in 0..big_grid[0].len() {
+                if y % 2 == 1 {
+                    continue;
+                }
+                if x != 0
+                    && right.contains(&big_grid[x - 1][y].mov)
+                    && x < xlen - 1
+                    && left.contains(&big_grid[x + 1][y].mov)
+                {
+                    big_grid[x][y] = Seg {
+                        mov: EW,
+                        loc: Loop,
+                        orig: '-',
+                        is_start: false,
+                    };
+                }
+            }
+        } else {
+            for y in 0..big_grid[0].len() {
+                if y % 2 == 0 {
+                    continue;
+                }
+                if up.contains(&big_grid[x][y - 1].mov)
+                    && y < ylen - 1
+                    && down.contains(&big_grid[x][y + 1].mov)
+                {
+                    big_grid[x][y] = Seg {
+                        mov: NS,
+                        loc: Loop,
+                        orig: '|',
+                        is_start: false,
+                    };
+                }
+            }
         }
-        SW => {
-            grid[mid][y].inside.extend([South, West]);
-            (North, vec![South, West])
+    }
+
+    // seed the flood fill
+    for x in 0..big_grid.len() {
+        for y in 0..big_grid[0].len() {
+            if (x == 0 || x == xlen - 1) || (y == 0 || y == ylen - 1) {
+                if big_grid[x][y].loc == Unknown {
+                    big_grid[x][y].loc = Outside;
+                }
+            }
         }
-        _ => panic!("bad segment"),
-    };
-    //now that we have one, extend it around the loop
-    trace(
-        Pos { x: mid, y },
-        grid[mid][y].mov,
-        prev_move2,
-        &mut grid,
-        |p, t, g| {
-            // last
-            let next_inside: Vec<Direction> = match t {
-                NS => {
-                    if last_inside.contains(&East) {
-                        vec![East]
-                    } else {
-                        vec![West]
+    }
+
+    // do the flood fill
+    let cross: [(isize, isize); 4] = [(0, -1), (0, 1), (1, 0), (-1, 0)];
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for ux in 0..big_grid.len() {
+            for uy in 0..big_grid[0].len() {
+                let x = ux as isize;
+                let y = uy as isize;
+                if big_grid[ux][uy].loc == Unknown {
+                    for (dx, dy) in cross {
+                        if x + dx >= 0
+                            && y + dy >= 0
+                            && x + dx < (xlen - 1) as isize
+                            && y + dy < (ylen - 1) as isize
+                        {
+                            let near = &big_grid[(x + dx) as usize][(y + dy) as usize];
+                            if near.loc == Outside {
+                                big_grid[ux][uy].loc = Outside;
+                                changed = true;
+                                break;
+                            }
+                        }
                     }
                 }
-                EW => {
-                    if last_inside.contains(&North) {
-                        vec![North]
-                    } else {
-                        vec![South]
+            }
+        }
+
+        // do it backwards as a hack
+        for ux in (0..big_grid.len()).rev() {
+            for uy in (0..big_grid[0].len()).rev() {
+                let x = ux as isize;
+                let y = uy as isize;
+                if big_grid[ux][uy].loc == Unknown {
+                    //println!("{},{}", ux, uy);
+                    for (dx, dy) in cross.iter().rev() {
+                        if x + dx >= 0
+                            && y + dy >= 0
+                            && x + dx < (xlen) as isize
+                            && y + dy < (ylen) as isize
+                        {
+                            let near = &big_grid[(x + dx) as usize][(y + dy) as usize];
+                            if near.loc == Outside {
+                                big_grid[ux][uy].loc = Outside;
+                                changed = true;
+                                break;
+                            }
+                        }
                     }
                 }
-                NW | SE => {
-                    if last_inside.contains(&North) || last_inside.contains(&West) {
-                        vec![North, West]
-                    } else {
-                        vec![South, East]
-                    }
-                }
-                NE | SW => {
-                    if last_inside.contains(&North) || last_inside.contains(&East) {
-                        vec![North, East]
-                    } else {
-                        vec![South, West]
-                    }
-                }
-                _ => panic!(
-                    "bad last_inside {:?} loc {:?}",
-                    last_inside, g[p.x][p.y].mov
-                ),
-            };
-            g[p.x][p.y].inside.extend(next_inside.clone());
-            //println!("{:?}", g[p.x][p.y].inside);
-            last_inside = next_inside;
-        },
-    );
+            }
+        }
+    }
+
+    for x in 0..big_grid.len() {
+        for y in 0..big_grid[0].len() {
+            if big_grid[x][y].loc == Unknown {
+                big_grid[x][y].loc = Inside;
+            }
+        }
+    }
+
+    let mut grid3: Grid = vec![];
+    for _ in 0..grid.len() {
+        grid3.push(vec![])
+    }
+
+    for x in 0..grid.len() {
+        for y in 0..grid[0].len() {
+            grid3[x].push(big_grid[x * 2][y * 2].clone());
+        }
+    }
 
     let mut inside = 0;
     use Placement::*;
-    for y in 0..grid[0].len() {
-        for x in 0..grid.len() {
-            update_from_nearby(x, y, &mut grid);
-            match grid[x][y].loc {
-                Loop => match grid[x][y].inside[..] {
-                    [North] => print!("^"),
-                    [South] => print!("v"),
-                    [East] => print!(">"),
-                    [West] => print!("<"),
-
-                    [North, West] => print!("F"),
-                    [South, West] => print!("L"),
-                    [North, East] => print!("7"),
-                    [South, East] => print!("J"),
-                    _ => print!("."),
-                },
+    for y in 0..grid3[0].len() {
+        for x in 0..grid3.len() {
+            match grid3[x][y].loc {
+                Loop => print!("{}", grid3[x][y].orig),
                 Inside => {
                     print!("I");
                     inside += 1
                 }
-                Outside => print!("."),
-                _ => print!("U"),
+                Outside => print!("O"),
+                _ => print!("."),
             }
         }
         println!("");
