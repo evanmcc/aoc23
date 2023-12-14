@@ -12,6 +12,8 @@ struct Galaxy {
     y: isize,
 }
 
+static EXPANSION: usize = 1_000_000;
+
 fn main() {
     let infile = std::env::args().nth(1).expect("no input file given.");
     let infh = File::open(std::path::PathBuf::from(infile)).expect("couldn't open file");
@@ -58,20 +60,6 @@ fn main() {
     vcols.sort();
     println!("rows {:?} cols {:?}", vrows, vcols);
 
-    for row in vrows {
-        grid.insert(row + offset, (0..ylen).map(|_| '.').collect());
-        offset += 1;
-    }
-
-    offset = 0;
-
-    for col in vcols {
-        for row in grid.iter_mut() {
-            row.insert(col + offset, '.');
-        }
-        offset += 1;
-    }
-
     let mut num = 0;
     let mut gals: Vec<Galaxy> = vec![];
     for x in 0..grid.len() {
@@ -87,6 +75,25 @@ fn main() {
             print!("{}", grid[x][y]);
         }
         println!();
+    }
+
+    for row in vrows {
+        for g in &mut gals {
+            if g.x >= (row + offset) as isize {
+                g.x += (EXPANSION - 1) as isize;
+            }
+        }
+        offset += EXPANSION - 1;
+    }
+
+    offset = 0;
+    for col in vcols {
+        for g in &mut gals {
+            if g.y >= (col + offset) as isize {
+                g.y += (EXPANSION - 1) as isize;
+            }
+        }
+        offset += EXPANSION - 1;
     }
 
     println!("{} galaxies", num);
